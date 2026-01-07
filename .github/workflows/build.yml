@@ -29,4 +29,4 @@ jobs:
           poetry run pre-commit run --all-files --show-diff-on-failure
 
       - name: Run sqlfluff lint
-        run: poetry run sqlfluff lint --show-violations
+        run: poetry run sqlfluff lint
