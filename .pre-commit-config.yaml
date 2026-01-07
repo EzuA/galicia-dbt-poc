@@ -1,0 +1,33 @@
+repos:
+  - repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: v4.5.0
+    hooks:
+      - id: trailing-whitespace
+      - id: check-merge-conflict
+      - id: check-toml
+      - id: check-yaml
+      - id: detect-private-key
+      - id: end-of-file-fixer
+      - id: debug-statements
+
+  - repo: local
+    hooks:
+
+      - id: ruff
+        name: ruff format
+        entry: poetry run ruff format
+        language: system
+        types: [python]
+
+      - id: ruff
+        name: ruff check
+        entry: poetry run ruff check
+        language: system
+        types: [python]
+        args: ["--fix", "--show-fixes"]
+
+      - id: sqlfluff-fix
+        name: sqlfluff fix
+        entry: poetry run sqlfluff fix
+        language: system
+        types: [sql]

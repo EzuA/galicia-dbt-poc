@@ -1,0 +1,6 @@
+country,country_code,currency,timezone
+Argentina,AR,ARS,America/Argentina/Buenos_Aires
+México,MX,MXN,America/Mexico_City
+Colombia,CO,COP,America/Bogota
+Chile,CL,CLP,America/Santiago
+España,ES,EUR,Europe/Madrid

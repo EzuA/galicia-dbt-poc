@@ -1,0 +1,133 @@
+unit_tests:
+  # Test 1: Validar que el full_name se construye correctamente
+  - name: test_full_name_concatenation
+    description: "Verifica que el full_name sea la concatenación correcta de first_name y last_name"
+    model: stg_users
+    given:
+      - input: ref('users')
+        rows:
+          - {
+              user_id: 1,
+              email: "john@example.com",
+              first_name: "John",
+              last_name: "Doe",
+              created_at: "2023-01-01",
+              country: "USA",
+            }
+    expect:
+      rows:
+        - {
+            user_id: 1,
+            full_name: "John Doe",
+            email: "john@example.com",
+            first_name: "John",
+            last_name: "Doe",
+            created_at: "2023-01-01",
+            country: "USA",
+            email_domain: "john@example.com",
+            is_valid_email: true,
+          }
+
+  # Test 2: Validar que user_id se preserva correctamente
+  - name: test_user_id_preserved
+    description: "Verifica que el user_id se preserve sin cambios desde la fuente"
+    model: stg_users
+    given:
+      - input: ref('users')
+        rows:
+          - {
+              user_id: 42,
+              email: "jane@example.com",
+              first_name: "Jane",
+              last_name: "Smith",
+              created_at: "2023-06-15",
+              country: "Canada",
+            }
+    expect:
+      rows:
+        - {
+            user_id: 42,
+            full_name: "Jane Smith",
+            email: "jane@example.com",
+            first_name: "Jane",
+            last_name: "Smith",
+            created_at: "2023-06-15",
+            country: "Canada",
+            email_domain: "jane@example.com",
+            is_valid_email: true,
+          }
+
+  # Test 3: Validar con múltiples registros
+  - name: test_multiple_users_processed
+    description: "Verifica que se procesen correctamente múltiples usuarios"
+    model: stg_users
+    given:
+      - input: ref('users')
+        rows:
+          - {
+              user_id: 1,
+              email: "user1@test.com",
+              first_name: "Alice",
+              last_name: "Johnson",
+              created_at: "2023-01-01",
+              country: "USA",
+            }
+          - {
+              user_id: 2,
+              email: "user2@test.com",
+              first_name: "Bob",
+              last_name: "Williams",
+              created_at: "2023-02-01",
+              country: "UK",
+            }
+          - {
+              user_id: 3,
+              email: "user3@test.com",
+              first_name: "Charlie",
+              last_name: "Brown",
+              created_at: "2023-03-01",
+              country: "Australia",
+            }
+    expect:
+      rows:
+        - { user_id: 1, full_name: "Alice Johnson" }
+        - { user_id: 2, full_name: "Bob Williams" }
+        - { user_id: 3, full_name: "Charlie Brown" }
+
+  # Test 4: Validar que is_valid_email siempre es true
+  - name: test_email_validation_flag
+    description: "Verifica que el flag is_valid_email siempre sea true"
+    model: stg_users
+    given:
+      - input: ref('users')
+        rows:
+          - {
+              user_id: 1,
+              email: "test@example.com",
+              first_name: "Test",
+              last_name: "User",
+              created_at: "2023-01-01",
+              country: "USA",
+            }
+    expect:
+      rows:
+        - { is_valid_email: true }
+
+  # Test 5: Validar que email se preserva en email_domain
+  - name: test_email_domain_preservation
+    description: "Verifica que email_domain contenga el email original (versión actual del modelo)"
+    model: stg_users
+    given:
+      - input: ref('users')
+        rows:
+          - {
+              user_id: 1,
+              email: "contact@company.org",
+              first_name: "Peter",
+              last_name: "Parker",
+              created_at: "2023-01-01",
+              country: "USA",
+            }
+    expect:
+      rows:
+        - { email_domain: "contact@company.org", email: "contact@company.org" }

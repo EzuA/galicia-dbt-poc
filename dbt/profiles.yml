@@ -1,0 +1,37 @@
+ecommerce_postgres:
+  target: dev
+  outputs:
+    dev:
+      type: postgres
+      host: postgres
+      user: postgres
+      password: postgres
+      port: 5432
+      dbname: ecommerce_demo
+      schema: public
+      threads: 4
+      keepalives_idle: 0 # default 0, indicating the system default
+      search_path: public # optional, not recommended
+
+# Spark (dbt-spark) profile usando PySpark Session
+ecommerce_spark:
+  target: dev
+  outputs:
+    dev:
+      type: spark
+      method: session
+      schema: default
+      host: NA # not used with session method
+      threads: 16
+      # Configuración de Spark para la sesión local
+      server_side_parameters:
+        spark.master: "local[*]"
+        spark.driver.memory: "4g"
+        spark.executor.memory: "2g"
+        spark.sql.warehouse.dir: "/tmp/spark-warehouse"
+        # Iceberg support
+        spark.jars.packages: "org.apache.iceberg:iceberg-spark-runtime-3.5_2.12:1.5.2"
+        spark.sql.extensions: "org.apache.iceberg.spark.extensions.IcebergSparkSessionExtensions"
+        spark.sql.catalog.spark_catalog: "org.apache.iceberg.spark.SparkSessionCatalog"
+        spark.sql.catalog.spark_catalog.type: "hadoop"
+        spark.sql.catalog.spark_catalog.warehouse: "/tmp/spark-warehouse"

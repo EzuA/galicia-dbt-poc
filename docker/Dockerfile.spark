@@ -1,0 +1,25 @@
+FROM ghcr.io/dbt-labs/dbt-spark:1.9.0
+
+# Java + procps for local Spark session
+RUN apt-get update \
+  && apt-get install -y --no-install-recommends \
+     openjdk-17-jre-headless \
+     procps \
+  && rm -rf /var/lib/apt/lists/*
+
+ENV JAVA_HOME=/usr/lib/jvm/java-17-openjdk-amd64
+
+# Copy corporate CA certificate
+COPY ./certs/caadmin.netskope.com.cer /etc/ssl/certs/caadmin.netskope.com.cer
+
+# Import corporate CA into Java truststore (required for Spark / Ivy / Maven)
+RUN keytool -importcert \
+    -alias netskope-ca \
+    -file /etc/ssl/certs/caadmin.netskope.com.cer \
+    -keystore $JAVA_HOME/lib/security/cacerts \
+    -storepass changeit \
+    -noprompt
+
+WORKDIR /usr/app
+
+ENTRYPOINT ["sh"]

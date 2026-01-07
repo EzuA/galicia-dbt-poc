@@ -1,0 +1,222 @@
+unit_tests:
+  # Test 1: Validar que status_spanish se convierte correctamente desde status
+  - name: test_status_spanish_completed
+    description: "Verifica que status 'completed' se traduce a 'Completada'"
+    model: stg_orders
+    given:
+      - input: ref('orders')
+        rows:
+          - {
+              order_id: 1,
+              user_id: 1,
+              order_date: "2023-01-01",
+              status: "completed",
+              total_amount: 100,
+            }
+    expect:
+      rows:
+        - { order_id: 1, status: "completed", status_spanish: "Completada" }
+
+  # Test 2: Validar traducción de status 'pending'
+  - name: test_status_spanish_pending
+    description: "Verifica que status 'pending' se traduce a 'Pendiente'"
+    model: stg_orders
+    given:
+      - input: ref('orders')
+        rows:
+          - {
+              order_id: 2,
+              user_id: 1,
+              order_date: "2023-01-05",
+              status: "pending",
+              total_amount: 75,
+            }
+    expect:
+      rows:
+        - { order_id: 2, status: "pending", status_spanish: "Pendiente" }
+
+  # Test 3: Validar traducción de status 'shipped'
+  - name: test_status_spanish_shipped
+    description: "Verifica que status 'shipped' se traduce a 'Enviada'"
+    model: stg_orders
+    given:
+      - input: ref('orders')
+        rows:
+          - {
+              order_id: 3,
+              user_id: 2,
+              order_date: "2023-01-10",
+              status: "shipped",
+              total_amount: 150,
+            }
+    expect:
+      rows:
+        - { order_id: 3, status: "shipped", status_spanish: "Enviada" }
+
+  # Test 4: Validar traducción de status 'cancelled'
+  - name: test_status_spanish_cancelled
+    description: "Verifica que status 'cancelled' se traduce a 'Cancelada'"
+    model: stg_orders
+    given:
+      - input: ref('orders')
+        rows:
+          - {
+              order_id: 4,
+              user_id: 3,
+              order_date: "2023-01-15",
+              status: "cancelled",
+              total_amount: 200,
+            }
+    expect:
+      rows:
+        - { order_id: 4, status: "cancelled", status_spanish: "Cancelada" }
+
+  # Test 5: Validar manejo de status desconocido
+  - name: test_status_spanish_unknown
+    description: "Verifica que status desconocido se traduce a 'Desconocida'"
+    model: stg_orders
+    given:
+      - input: ref('orders')
+        rows:
+          - {
+              order_id: 5,
+              user_id: 1,
+              order_date: "2023-01-20",
+              status: "invalid_status",
+              total_amount: 100,
+            }
+    expect:
+      rows:
+        - {
+            order_id: 5,
+            status: "invalid_status",
+            status_spanish: "Desconocida",
+          }
+
+  # Test 6: Validar order_size 'Pequeña' (total_amount < 50)
+  - name: test_order_size_small
+    description: "Verifica que órdenes menores a 50 sean clasificadas como 'Pequeña'"
+    model: stg_orders
+    given:
+      - input: ref('orders')
+        rows:
+          - {
+              order_id: 1,
+              user_id: 1,
+              order_date: "2023-01-01",
+              status: "completed",
+              total_amount: 25,
+            }
+          - {
+              order_id: 2,
+              user_id: 1,
+              order_date: "2023-01-02",
+              status: "completed",
+              total_amount: 49,
+            }
+    expect:
+      rows:
+        - { order_id: 1, total_amount: 25, order_size: "Pequeña" }
+        - { order_id: 2, total_amount: 49, order_size: "Pequeña" }
+
+  # Test 7: Validar order_size 'Mediana' (50 <= total_amount < 200)
+  - name: test_order_size_medium
+    description: "Verifica que órdenes entre 50 y 199 sean clasificadas como 'Mediana'"
+    model: stg_orders
+    given:
+      - input: ref('orders')
+        rows:
+          - {
+              order_id: 1,
+              user_id: 1,
+              order_date: "2023-01-01",
+              status: "completed",
+              total_amount: 50,
+            }
+          - {
+              order_id: 2,
+              user_id: 1,
+              order_date: "2023-01-02",
+              status: "completed",
+              total_amount: 100,
+            }
+          - {
+              order_id: 3,
+              user_id: 2,
+              order_date: "2023-01-03",
+              status: "completed",
+              total_amount: 199,
+            }
+    expect:
+      rows:
+        - { order_id: 1, total_amount: 50, order_size: "Mediana" }
+        - { order_id: 2, total_amount: 100, order_size: "Mediana" }
+        - { order_id: 3, total_amount: 199, order_size: "Mediana" }
+
+  # Test 8: Validar order_size 'Grande' (total_amount >= 200)
+  - name: test_order_size_large
+    description: "Verifica que órdenes mayores o iguales a 200 sean clasificadas como 'Grande'"
+    model: stg_orders
+    given:
+      - input: ref('orders')
+        rows:
+          - {
+              order_id: 1,
+              user_id: 1,
+              order_date: "2023-01-01",
+              status: "completed",
+              total_amount: 200,
+            }
+          - {
+              order_id: 2,
+              user_id: 2,
+              order_date: "2023-01-02",
+              status: "completed",
+              total_amount: 500,
+            }
+          - {
+              order_id: 3,
+              user_id: 3,
+              order_date: "2023-01-03",
+              status: "completed",
+              total_amount: 1000,
+            }
+    expect:
+      rows:
+        - { order_id: 1, total_amount: 200, order_size: "Grande" }
+        - { order_id: 2, total_amount: 500, order_size: "Grande" }
+        - { order_id: 3, total_amount: 1000, order_size: "Grande" }
+
+  # Test 9: Validar caso combinado - status_spanish y order_size juntos
+  - name: test_combined_status_and_size
+    description: "Verifica que status_spanish y order_size se calculan correctamente juntos"
+    model: stg_orders
+    given:
+      - input: ref('orders')
+        rows:
+          - {
+              order_id: 1,
+              user_id: 1,
+              order_date: "2023-01-01",
+              status: "completed",
+              total_amount: 150,
+            }
+          - {
+              order_id: 2,
+              user_id: 2,
+              order_date: "2023-01-02",
+              status: "pending",
+              total_amount: 30,
+            }
+          - {
+              order_id: 3,
+              user_id: 3,
+              order_date: "2023-01-03",
+              status: "shipped",
+              total_amount: 300,
+            }
+    expect:
+      rows:
+        - { order_id: 1, status_spanish: "Completada", order_size: "Mediana" }
+        - { order_id: 2, status_spanish: "Pendiente", order_size: "Pequeña" }
+        - { order_id: 3, status_spanish: "Enviada", order_size: "Grande" }

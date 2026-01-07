@@ -1,0 +1,38 @@
+# dbt
+dbt/target/
+dbt/dbt_packages/
+dbt/logs/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Python
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.Python
+env/
+venv/
+.venv/
+*.log
+
+# Docker
+.dockerignore
+data
+
+# spark
+metastore_db/
+spark-warehouse/
+derby.log
+.user.yml
+
+# Galicia
+certs/*

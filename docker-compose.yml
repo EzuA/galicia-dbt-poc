@@ -1,0 +1,77 @@
+x-dbt-env: &dbt_env
+  DBT_PROJECT_DIR: /usr/app/dbt
+  DBT_PROFILES_DIR: /usr/app/dbt
+  AWS_DEFAULT_REGION: us-east-1
+  # Galicia cert
+  SSL_CERT_FILE: /etc/ssl/certs/ca-certificates.crt
+  REQUESTS_CA_BUNDLE: /etc/ssl/certs/caadmin.netskope.com.cer
+  AWS_CA_BUNDLE: /etc/ssl/certs/caadmin.netskope.com.cer
+
+x-dbt-volumes: &dbt_volumes
+  - .:/usr/app
+  - ~/.aws:/root/.aws:ro
+  # caches
+  - ./data/spark-warehouse:/tmp/spark-warehouse
+  - ./data/ivy2:/root/.ivy2
+  # Galicia cert
+  - ./certs/caadmin.netskope.com.cer:/etc/ssl/certs/caadmin.netskope.com.cer:ro
+
+services:
+  postgres:
+    image: postgres:15
+    container_name: postgres
+    environment:
+      POSTGRES_DB: ecommerce_demo
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./docker/init.sql:/docker-entrypoint-initdb.d/init.sql
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  adminer:
+    image: adminer
+    ports:
+      - "8080:8080"
+    depends_on:
+      - postgres
+
+  dbt-postgres:
+    image: ghcr.io/dbt-labs/dbt-postgres:1.9.0
+    container_name: dbt-postgres
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment: *dbt_env
+    volumes: *dbt_volumes
+    working_dir: /usr/app/dbt
+    entrypoint:
+      - /bin/sh
+      - -lc
+      - |
+        dbt build --profile ecommerce_postgres
+
+  dbt-spark:
+    build:
+      context: .
+      dockerfile: ./docker/Dockerfile.spark
+    image: dbt-spark:local
+    container_name: dbt-spark
+    environment: *dbt_env
+    volumes: *dbt_volumes
+    working_dir: /usr/app/dbt
+    entrypoint:
+      - /bin/sh
+      - -lc
+      - |
+        rm -rf /tmp/spark-warehouse/default_raw_data
+        dbt build --profile ecommerce_spark
+
+volumes:
+  postgres_data:

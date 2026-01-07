@@ -1,0 +1,232 @@
+version: 2
+
+models:
+  # Staging Layer
+  - name: stg_users
+    description: "Usuarios con limpieza básica y campos calculados"
+    columns:
+      - name: user_id
+        description: "ID único del usuario"
+        tests:
+          - unique
+          - not_null
+      - name: full_name
+        description: "Nombre completo del usuario"
+        tests:
+          # Test custom con macro: validar longitud del nombre
+          - column_length_between:
+              min_length: 3
+              max_length: 100
+      - name: email
+        description: "Email del usuario"
+        tests:
+          # Test custom con macro: validar patrón de email
+          - column_match_pattern:
+              pattern: '%@%.%'
+      - name: email_domain
+        description: "Dominio del email del usuario"
+      - name: is_valid_email
+        description: "Indica si el email es válido"
+        tests:
+          - not_null
+
+  - name: stg_orders
+    description: "Órdenes con limpieza básica y campos calculados"
+    columns:
+      - name: order_id
+        description: "ID único de la orden"
+        tests:
+          - unique
+          - not_null
+      - name: status_spanish
+        description: "Estado de la orden en español"
+        tests:
+          # Test custom con macro: validar valores permitidos
+          - allowed_values_list:
+              values: ['Completada', 'Pendiente', 'Enviada', 'Cancelada', 'Desconocida']
+      - name: order_size
+        description: "Tamaño de la orden (Pequeña, Mediana, Grande)"
+        tests:
+          # Test custom con macro: validar valores permitidos
+          - allowed_values_list:
+              values: ['Pequeña', 'Mediana', 'Grande']
+      - name: total_amount
+        description: "Monto total de la orden"
+        tests:
+          # Test custom con macro: validar rango de valores
+          - value_in_range:
+              min_value: 0
+              max_value: 100000
+          # Ejemplo con dbt_expectations: valores entre 0 y 100000
+          - dbt_expectations.expect_column_values_to_be_between:
+              min_value: 0
+              max_value: 100000
+              strictly: false
+
+  - name: stg_products
+    description: "Productos con limpieza básica y campos calculados"
+    columns:
+      - name: product_id
+        description: "ID único del producto"
+        tests:
+          - unique
+          - not_null
+      - name: price_tier
+        description: "Nivel de precio (Económico, Medio, Premium)"
+      - name: product_age_category
+        description: "Categoría de antigüedad del producto"
+
+  - name: stg_order_items
+    description: "Items de órdenes con campos calculados"
+    columns:
+      - name: order_item_id
+        description: "ID único del item"
+        tests:
+          - unique
+          - not_null
+      - name: item_total
+        description: "Total del item (cantidad * precio unitario)"
+        tests:
+          - not_null
+
+  # Intermediate Layer
+  - name: int_user_orders
+    description: "Agregación de métricas de usuarios y órdenes"
+    columns:
+      - name: user_id
+        description: "ID único del usuario"
+        tests:
+          - unique
+          - not_null
+      - name: total_orders
+        description: "Total de órdenes del usuario"
+        tests:
+          - not_null
+      - name: total_spent
+        description: "Total gastado por el usuario"
+        tests:
+          - not_null
+
+  - name: int_users_with_sk
+    description: "Ejemplo de dbt_utils: clave surrogate generada desde stg_users"
+    columns:
+      - name: user_sk
+        description: "Clave surrogate generada con dbt_utils.surrogate_key(user_id, email)"
+        tests:
+          - not_null
+      - name: user_id
+        description: "ID del usuario de origen"
+        tests:
+          - not_null
+
+  - name: int_product_metrics
+    description: "Agregación de métricas de productos"
+    columns:
+      - name: product_id
+        description: "ID único del producto"
+        tests:
+          - unique
+          - not_null
+      - name: total_revenue
+        description: "Ingresos totales del producto"
+        tests:
+          - not_null
+
+  - name: int_monthly_sales
+    description: "Agregación de ventas por mes"
+    columns:
+      - name: year_month
+        description: "Clave del período (YYYY-MM)"
+        tests:
+          - unique
+          - not_null
+      - name: total_revenue
+        description: "Ingresos totales del mes"
+        tests:
+          - not_null
+
+  # Marts Layer - Dimensions
+  - name: dim_users
+    description: "Dimensión de usuarios con métricas de negocio"
+    columns:
+      - name: user_id
+        description: "ID único del usuario"
+        tests:
+          - unique
+          - not_null
+      - name: customer_tier
+        description: "Nivel del cliente (VIP, Premium, Regular, Básico, Inactivo)"
+        tests:
+          - not_null
+          # Test custom con macro: validar valores permitidos
+          - allowed_values_list:
+              values: ['VIP', 'Premium', 'Regular', 'Básico', 'Inactivo']
+      - name: total_spent
+        description: "Total gastado por el cliente"
+        tests:
+          - not_null
+          # Test custom con macro: validar que sea positivo o cero
+          - value_in_range:
+              min_value: 0
+
+  - name: dim_products
+    description: "Dimensión de productos con métricas de rendimiento"
+    columns:
+      - name: product_id
+        description: "ID único del producto"
+        tests:
+          - unique
+          - not_null
+      - name: revenue_rank
+        description: "Ranking por ingresos"
+        tests:
+          - not_null
+      - name: performance_category
+        description: "Categoría de rendimiento del producto"
+
+  # Marts Layer - Facts
+  - name: fact_orders
+    description: "Tabla de hechos de órdenes a nivel de item (order_item_id es la clave primaria)"
+    columns:
+      - name: order_item_id
+        description: "ID único del item de orden"
+        tests:
+          - unique
+          - not_null
+      - name: order_id
+        description: "ID de la orden (puede tener múltiples items)"
+        tests:
+          - not_null
+      - name: item_total
+        description: "Total del item (cantidad * precio unitario)"
+        tests:
+          - not_null
+
+  - name: fact_daily_sales
+    description: "Tabla de hechos de ventas diarias"
+    columns:
+      - name: date
+        description: "Fecha de la métrica"
+        tests:
+          - not_null
+      - name: daily_revenue
+        description: "Ingresos diarios"
+        tests:
+          - not_null
+      - name: daily_conversion_rate
+        description: "Tasa de conversión diaria"
+
+  - name: fact_monthly_sales
+    description: "Tabla de hechos de ventas mensuales con crecimiento"
+    columns:
+      - name: year_month
+        description: "Clave del período (YYYY-MM)"
+        tests:
+          - unique
+          - not_null
+      - name: total_revenue
+        description: "Ingresos totales del período"
+        tests:
+          - not_null
+      - name: revenue_growth_pct
+        description: "Porcentaje de crecimiento de ingresos"
