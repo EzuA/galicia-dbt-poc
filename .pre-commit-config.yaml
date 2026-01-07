@@ -25,9 +25,3 @@ repos:
         language: system
         types: [python]
         args: ["--fix", "--show-fixes"]
-
-      - id: sqlfluff-fix
-        name: sqlfluff fix
-        entry: poetry run sqlfluff fix
-        language: system
-        types: [sql]
