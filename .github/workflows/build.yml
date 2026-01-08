@@ -8,39 +8,15 @@ on:
     branches:
       - "**"
 
+env:
+  SPARK_SUBMIT_OPTS: -Dlog4j.configurationFile=file:./config/spark/log4j.properties
+
 jobs:
-  lint-and-test:
+  pre-commit:
     runs-on: ubuntu-latest
-    env:
-      SPARK_SUBMIT_OPTS: -Dlog4j.configurationFile=file:./config/spark/log4j.properties
 
     steps:
-      - name: Checkout code
-        uses: actions/checkout@v3
-
-      - name: Setup Python
-        uses: actions/setup-python@v4
-        with:
-          python-version: "3.12"
-          cache: "pip"
-
-      - name: Install poetry
-        run: |
-          python -m pip install --upgrade pip
-          pip install poetry
-
-      - name: Configure poetry
-        run: |
-          poetry config virtualenvs.in-project true
-          poetry config installer.max-workers 4
-
-      - name: Cache poetry and virtualenv
-        uses: actions/cache@v4
-        with:
-          path: |
-            .venv
-            ~/.cache/pypoetry
-          key: ${{ runner.os }}-poetry-${{ hashFiles('poetry.lock') }}
+      - uses: ./.github/actions/setup-poetry
 
       - name: Cache pre-commit
         uses: actions/cache@v4
@@ -67,13 +43,58 @@ jobs:
 
       - name: Run pre-commit hooks
         run: |
-          poetry install --no-interaction --no-ansi
           poetry run pre-commit run --all-files --show-diff-on-failure
+
+  sqlfluff-lint:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: ./.github/actions/setup-poetry
+
+      - name: Cache dbt
+        uses: actions/cache@v4
+        with:
+          path: |
+            dbt/dbt_packages
+            dbt/target
+            ~/.cache/dbt
+          key: ${{ runner.os }}-dbt
+
+      - name: Cache spark/ivy
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.ivy2
+            ~/.cache/ivy2
+          key: ${{ runner.os }}-ivy-${{ hashFiles('dbt/profiles.yml') }}
 
       - name: Run sqlfluff lint
         run: |
           poetry run dbt deps --profile ecommerce_spark --project-dir dbt --profiles-dir dbt
           poetry run sqlfluff lint
+
+  dbt-unit-tests:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: ./.github/actions/setup-poetry
+
+      - name: Cache dbt
+        uses: actions/cache@v4
+        with:
+          path: |
+            dbt/dbt_packages
+            dbt/target
+            ~/.cache/dbt
+          key: ${{ runner.os }}-dbt
+
+      - name: Cache spark/ivy
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.ivy2
+            ~/.cache/ivy2
+          key: ${{ runner.os }}-ivy-${{ hashFiles('dbt/profiles.yml') }}
 
       - name: Run dbt unit tests
         run: |
