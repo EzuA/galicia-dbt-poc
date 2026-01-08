@@ -28,7 +28,7 @@ renamed as (
         extract(dow from order_date) as day_of_week,
         -- Clasificación de orden
         case
-            when total_amount < 5 then 'Pequeña'
+            when total_amount < 50 then 'Pequeña'
             when total_amount < 200 then 'Mediana'
             else 'Grande'
         end as order_size
