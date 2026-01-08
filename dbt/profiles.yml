@@ -27,7 +27,6 @@ ecommerce_spark:
       server_side_parameters:
         spark.master: "local[*]"
         spark.driver.memory: "4g"
-        spark.driver.extraJavaOptions: "-Dlog4j.configurationFile=dbt/conf/log4j2.properties"
         spark.executor.memory: "2g"
         spark.sql.warehouse.dir: "/tmp/spark-warehouse"
         # Iceberg support
