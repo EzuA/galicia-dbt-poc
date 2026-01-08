@@ -29,16 +29,14 @@ jobs:
           poetry run pre-commit run --all-files --show-diff-on-failure
 
       - name: Run sqlfluff lint
-        env:
-          SPARK_SUBMIT_OPTS: "-Dlog4j.configurationFile=file:${{ github.workspace }}/config/spark/log4j2.properties"
         run: |
+          export SPARK_SUBMIT_OPTS="-Dlog4j.configurationFile=file:$(pwd)/config/spark/log4j2.properties"
           poetry run dbt deps --profile ecommerce_spark --project-dir dbt --profiles-dir dbt
           poetry run sqlfluff lint
 
       - name: Run dbt unit tests
-        env:
-          SPARK_SUBMIT_OPTS: "-Dlog4j.configurationFile=file:${{ github.workspace }}/config/spark/log4j.properties"
         run: |
+          export SPARK_SUBMIT_OPTS="-Dlog4j.configurationFile=file:$(pwd)/config/spark/log4j2.properties"
           refs=$(grep -hEo "input: ref\\('[A-Za-z0-9_]+'\\)" dbt/tests/unit/*.yml | sed -E "s/.*ref\\('([A-Za-z0-9_]+)'\\)/\\1/" | sort -u | tr '\n' ' ')
           poetry run dbt seed --select "${refs}" --profile ecommerce_spark --project-dir dbt --profiles-dir dbt
           poetry run dbt test --select test_type:unit --profile ecommerce_spark --project-dir dbt --profiles-dir dbt
