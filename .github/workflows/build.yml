@@ -29,6 +29,8 @@ jobs:
           poetry run pre-commit run --all-files --show-diff-on-failure
 
       - name: Run sqlfluff lint
+        env:
+          SPARK_SUBMIT_OPTS: "-Dlog4j.configurationFile=file:${{ github.workspace }}/config/spark/log4j2.properties"
         run: |
           poetry run dbt deps --profile ecommerce_spark --project-dir dbt --profiles-dir dbt
           poetry run sqlfluff lint
