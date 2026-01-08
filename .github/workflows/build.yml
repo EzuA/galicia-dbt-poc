@@ -29,4 +29,6 @@ jobs:
           poetry run pre-commit run --all-files --show-diff-on-failure
 
       - name: Run sqlfluff lint
-        run: cd dbt && poetry run dbt deps --profile ecommerce_spark && poetry run sqlfluff lint
+        run: |
+          poetry run dbt deps --profile ecommerce_spark --project-dir dbt --profiles-dir dbt
+          poetry run sqlfluff lint
