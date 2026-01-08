@@ -3,6 +3,7 @@ dialect = sparksql
 templater = dbt
 max_line_length = 90
 exclude_rules = RF04
+exclude_paths = dbt/dbt_packages
 
 [sqlfluff:templater:dbt]
 project_dir = dbt
