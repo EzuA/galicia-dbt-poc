@@ -32,3 +32,9 @@ jobs:
         run: |
           poetry run dbt deps --profile ecommerce_spark --project-dir dbt --profiles-dir dbt
           poetry run sqlfluff lint
+
+      - name: Run dbt unit tests
+        run: |
+          models=$(rg -o "model: [A-Za-z0-9_]+" dbt/tests/unit -r '$1' | awk '{print $2}' | sort -u | tr '\n' ' ')
+          poetry run dbt run --select "${models}" --empty --profile ecommerce_spark --project-dir dbt --profiles-dir dbt
+          poetry run dbt test --select test_type:unit --profile ecommerce_spark --project-dir dbt --profiles-dir dbt
