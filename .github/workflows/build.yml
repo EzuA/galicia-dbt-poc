@@ -1,99 +1,82 @@
-name: Lint and dbt unit tests
+name: Run pre-commit hooks and tests
 
 on:
   push:
-    branches: ["**"]
+    branches:
+      - "**"
   pull_request:
-    branches: ["**"]
-
-env:
-  SPARK_SUBMIT_OPTS: -Dlog4j.configurationFile=file:./config/spark/log4j.properties
+    branches:
+      - "**"
 
 jobs:
-  lint:
+  lint-and-test:
     runs-on: ubuntu-latest
+    env:
+      SPARK_SUBMIT_OPTS: -Dlog4j.configurationFile=file:./config/spark/log4j.properties
 
     steps:
       - name: Checkout code
-        uses: actions/checkout@v4
+        uses: actions/checkout@v3
 
       - name: Setup Python
-        uses: actions/setup-python@v5
+        uses: actions/setup-python@v4
         with:
           python-version: "3.12"
+          cache: "pip"
 
-      - name: Install Poetry
-        uses: snok/install-poetry@v1
-        with:
-          version: 2.2.1
-          virtualenvs-in-project: true
+      - name: Install poetry
+        run: |
+          python -m pip install --upgrade pip
+          pip install poetry
 
-      - name: Cache Poetry, venv and pre-commit
+      - name: Configure poetry
+        run: |
+          poetry config virtualenvs.in-project true
+          poetry config installer.max-workers 4
+
+      - name: Cache poetry and virtualenv
         uses: actions/cache@v4
         with:
           path: |
             .venv
             ~/.cache/pypoetry
-            ~/.cache/pre-commit
           key: ${{ runner.os }}-poetry-${{ hashFiles('poetry.lock') }}
 
-      - name: Install dependencies
-        run: poetry install --no-interaction --no-ansi
-
-      - name: Run pre-commit
-        run: poetry run pre-commit run --all-files --show-diff-on-failure
-
-      - name: dbt deps (for sqlfluff templater)
-        run: |
-          poetry run dbt deps \
-            --project-dir dbt \
-            --profiles-dir dbt
-
-      - name: Run sqlfluff
-        run: poetry run sqlfluff lint
-
-  dbt-unit-tests:
-    needs: lint
-    runs-on: ubuntu-latest
-
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
-
-      - name: Setup Python
-        uses: actions/setup-python@v5
+      - name: Cache pre-commit
+        uses: actions/cache@v4
         with:
-          python-version: "3.12"
+          path: ~/.cache/pre-commit
+          key: ${{ runner.os }}-precommit-${{ hashFiles('.pre-commit-config.yaml') }}
 
-      - name: Install Poetry
-        uses: snok/install-poetry@v1
-        with:
-          version: 2.2.1
-          virtualenvs-in-project: true
-
-      - name: Cache Poetry, dbt and Spark/Ivy
+      - name: Cache dbt
         uses: actions/cache@v4
         with:
           path: |
-            .venv
-            ~/.cache/pypoetry
+            dbt/dbt_packages
+            dbt/target
             ~/.cache/dbt
+          key: ${{ runner.os }}-dbt
+
+      - name: Cache spark/ivy
+        uses: actions/cache@v4
+        with:
+          path: |
             ~/.ivy2
-          key: ${{ runner.os }}-poetry-${{ hashFiles('poetry.lock', 'dbt/packages.yml') }}
+            ~/.cache/ivy2
+          key: ${{ runner.os }}-ivy-${{ hashFiles('dbt/profiles.yml') }}
 
-      - name: Install dependencies
-        run: poetry install --no-interaction --no-ansi
-
-      - name: Run dbt unit tests (correct pattern)
+      - name: Run pre-commit hooks
         run: |
-          poetry run dbt run \
-            --select +test_type:unit \
-            --exclude test_type:unit \
-            --empty \
-            --project-dir dbt \
-            --profiles-dir dbt
+          poetry install --no-interaction --no-ansi
+          poetry run pre-commit run --all-files --show-diff-on-failure
 
-          poetry run dbt test \
-            --select test_type:unit \
-            --project-dir dbt \
-            --profiles-dir dbt
+      - name: Run sqlfluff lint
+        run: |
+          poetry run dbt deps --profile ecommerce_spark --project-dir dbt --profiles-dir dbt
+          poetry run sqlfluff lint
+
+      - name: Run dbt unit tests
+        run: |
+          refs=$(grep -hEo "input: ref\\('[A-Za-z0-9_]+'\\)" dbt/tests/unit/*.yml | sed -E "s/.*ref\\('([A-Za-z0-9_]+)'\\)/\\1/" | sort -u | tr '\n' ' ')
+          poetry run dbt seed --select "${refs}" --profile ecommerce_spark --project-dir dbt --profiles-dir dbt
+          poetry run dbt test --select test_type:unit --profile ecommerce_spark --project-dir dbt --profiles-dir dbt
