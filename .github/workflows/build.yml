@@ -30,13 +30,13 @@ jobs:
 
       - name: Run sqlfluff lint
         run: |
-          export SPARK_SUBMIT_OPTS="-Dlog4j.configurationFile=file:$(pwd)/config/spark/log4j2.properties"
+          export SPARK_SUBMIT_OPTS="-Dlog4j.configurationFile=file:$(pwd)/config/spark/log4j.properties"
           poetry run dbt deps --profile ecommerce_spark --project-dir dbt --profiles-dir dbt
           poetry run sqlfluff lint
 
       - name: Run dbt unit tests
         run: |
-          export SPARK_SUBMIT_OPTS="-Dlog4j.configurationFile=file:$(pwd)/config/spark/log4j2.properties"
+          export SPARK_SUBMIT_OPTS="-Dlog4j.configurationFile=file:$(pwd)/config/spark/log4j.properties"
           refs=$(grep -hEo "input: ref\\('[A-Za-z0-9_]+'\\)" dbt/tests/unit/*.yml | sed -E "s/.*ref\\('([A-Za-z0-9_]+)'\\)/\\1/" | sort -u | tr '\n' ' ')
           poetry run dbt seed --select "${refs}" --profile ecommerce_spark --project-dir dbt --profiles-dir dbt
           poetry run dbt test --select test_type:unit --profile ecommerce_spark --project-dir dbt --profiles-dir dbt
