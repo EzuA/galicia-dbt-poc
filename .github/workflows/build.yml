@@ -1,122 +1,99 @@
-name: Run pre-commit hooks and tests
+name: Lint and dbt unit tests
 
 on:
   push:
-    branches:
-      - "**"
+    branches: ["**"]
   pull_request:
-    branches:
-      - "**"
+    branches: ["**"]
 
 env:
   SPARK_SUBMIT_OPTS: -Dlog4j.configurationFile=file:./config/spark/log4j.properties
 
-x-steps:
-  checkout: &step-checkout
-    name: Checkout code
-    uses: actions/checkout@v3
-  setup-python: &step-setup-python
-    name: Setup Python
-    uses: actions/setup-python@v4
-    with:
-      python-version: "3.12"
-      cache: "pip"
-  install-poetry: &step-install-poetry
-    name: Install poetry
-    run: |
-      python -m pip install --upgrade pip
-      pip install poetry
-  configure-poetry: &step-configure-poetry
-    name: Configure poetry
-    run: |
-      poetry config virtualenvs.in-project true
-      poetry config installer.max-workers 4
-  cache-poetry: &step-cache-poetry
-    name: Cache poetry and virtualenv
-    uses: actions/cache@v4
-    with:
-      path: |
-        .venv
-        ~/.cache/pypoetry
-      key: ${{ runner.os }}-poetry-${{ hashFiles('poetry.lock') }}
-  install-deps: &step-install-deps
-    name: Install dependencies
-    run: |
-      poetry install --no-interaction --no-ansi
-  cache-pre-commit: &step-cache-pre-commit
-    name: Cache pre-commit
-    uses: actions/cache@v4
-    with:
-      path: ~/.cache/pre-commit
-      key: ${{ runner.os }}-precommit-${{ hashFiles('.pre-commit-config.yaml') }}
-  cache-dbt: &step-cache-dbt
-    name: Cache dbt
-    uses: actions/cache@v4
-    with:
-      path: |
-        dbt/target
-        dbt/packages
-        ~/.cache/dbt
-      key: ${{ runner.os }}-dbt-${{ hashFiles('dbt/packages.yml', 'dbt/dbt_project.yml', 'dbt/profiles.yml') }}
-  cache-spark-ivy: &step-cache-spark-ivy
-    name: Cache spark/ivy
-    uses: actions/cache@v4
-    with:
-      path: |
-        ~/.ivy2
-        ~/.cache/ivy2
-      key: ${{ runner.os }}-ivy-${{ hashFiles('dbt/profiles.yml') }}
-
 jobs:
-  pre-commit:
+  lint:
     runs-on: ubuntu-latest
 
     steps:
-      - *step-checkout
-      - *step-setup-python
-      - *step-install-poetry
-      - *step-configure-poetry
-      - *step-cache-poetry
-      - *step-install-deps
-      - *step-cache-pre-commit
+      - name: Checkout code
+        uses: actions/checkout@v4
 
-      - name: Run pre-commit hooks
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install Poetry
+        uses: snok/install-poetry@v1
+        with:
+          version: 2.2.1
+          virtualenvs-in-project: true
+
+      - name: Cache Poetry, venv and pre-commit
+        uses: actions/cache@v4
+        with:
+          path: |
+            .venv
+            ~/.cache/pypoetry
+            ~/.cache/pre-commit
+          key: ${{ runner.os }}-poetry-${{ hashFiles('poetry.lock') }}
+
+      - name: Install dependencies
+        run: poetry install --no-interaction --no-ansi
+
+      - name: Run pre-commit
+        run: poetry run pre-commit run --all-files --show-diff-on-failure
+
+      - name: dbt deps (for sqlfluff templater)
         run: |
-          poetry run pre-commit run --all-files --show-diff-on-failure
+          poetry run dbt deps \
+            --project-dir dbt \
+            --profiles-dir dbt
 
-  sqlfluff-lint:
-    runs-on: ubuntu-latest
-
-    steps:
-      - *step-checkout
-      - *step-setup-python
-      - *step-install-poetry
-      - *step-configure-poetry
-      - *step-cache-poetry
-      - *step-install-deps
-      - *step-cache-dbt
-      - *step-cache-spark-ivy
-
-      - name: Run sqlfluff lint
-        run: |
-          poetry run dbt deps --profile ecommerce_spark --project-dir dbt --profiles-dir dbt
-          poetry run sqlfluff lint
+      - name: Run sqlfluff
+        run: poetry run sqlfluff lint
 
   dbt-unit-tests:
+    needs: lint
     runs-on: ubuntu-latest
 
     steps:
-      - *step-checkout
-      - *step-setup-python
-      - *step-install-poetry
-      - *step-configure-poetry
-      - *step-cache-poetry
-      - *step-install-deps
-      - *step-cache-dbt
-      - *step-cache-spark-ivy
+      - name: Checkout code
+        uses: actions/checkout@v4
 
-      - name: Run dbt unit tests
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install Poetry
+        uses: snok/install-poetry@v1
+        with:
+          version: 2.2.1
+          virtualenvs-in-project: true
+
+      - name: Cache Poetry, dbt and Spark/Ivy
+        uses: actions/cache@v4
+        with:
+          path: |
+            .venv
+            ~/.cache/pypoetry
+            ~/.cache/dbt
+            ~/.ivy2
+          key: ${{ runner.os }}-poetry-${{ hashFiles('poetry.lock', 'dbt/packages.yml') }}
+
+      - name: Install dependencies
+        run: poetry install --no-interaction --no-ansi
+
+      - name: Run dbt unit tests (correct pattern)
         run: |
-          refs=$(grep -hEo "input: ref\\('[A-Za-z0-9_]+'\\)" dbt/tests/unit/*.yml | sed -E "s/.*ref\\('([A-Za-z0-9_]+)'\\)/\\1/" | sort -u | tr '\n' ' ')
-          poetry run dbt seed --select "${refs}" --profile ecommerce_spark --project-dir dbt --profiles-dir dbt
-          poetry run dbt test --select test_type:unit --profile ecommerce_spark --project-dir dbt --profiles-dir dbt
+          poetry run dbt run \
+            --select +test_type:unit \
+            --exclude test_type:unit \
+            --empty \
+            --project-dir dbt \
+            --profiles-dir dbt
+
+          poetry run dbt test \
+            --select test_type:unit \
+            --project-dir dbt \
+            --profiles-dir dbt
